@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "../db";
 import { proofbuyEvents, proofbuyPolicies, proofbuyProposals } from "../../drizzle/schema";
 import type { PolicyRuleResult } from "./policy";
@@ -111,6 +111,15 @@ export async function getProposal(workspaceId: string, proposalId: string) {
   const [proposal] = await db.select().from(proofbuyProposals)
     .where(and(eq(proofbuyProposals.workspaceId, workspaceId), eq(proofbuyProposals.id, proposalId))).limit(1);
   return proposal ?? null;
+}
+
+export async function getProposalEvents(workspaceId: string, proposalId: string) {
+  const db = await database();
+  const proposal = await getProposal(workspaceId, proposalId);
+  if (!proposal) throw new Error("Proposal not found in this workspace.");
+  return db.select().from(proofbuyEvents)
+    .where(and(eq(proofbuyEvents.workspaceId, workspaceId), eq(proofbuyEvents.proposalId, proposalId)))
+    .orderBy(asc(proofbuyEvents.createdAt), asc(proofbuyEvents.id));
 }
 
 export async function approveProposal(workspaceId: string, proposalId: string) {

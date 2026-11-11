@@ -5,7 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { evaluateProposal } from "./proofbuy/policy";
-import { approveProposal, createProposal, getDashboard, savePolicy, simulateExecution } from "./proofbuy/storage";
+import { approveProposal, createProposal, getDashboard, getProposalEvents, savePolicy, simulateExecution } from "./proofbuy/storage";
 
 const workspaceIdSchema = z.string().regex(/^pb_[a-f0-9-]{36}$/i, "Invalid demo workspace id");
 const networkSchema = z.enum(["base-sepolia", "base-mainnet"]);
@@ -25,6 +25,10 @@ export const appRouter = router({
     getDashboard: publicProcedure.input(z.object({ workspaceId: workspaceIdSchema })).query(async ({ input }) => {
       try { return await getDashboard(input.workspaceId); } catch (error) { return asInternalError(error); }
     }),
+    getProposalEvents: publicProcedure.input(z.object({ workspaceId: workspaceIdSchema, proposalId: z.string().uuid() }))
+      .query(async ({ input }) => {
+        try { return await getProposalEvents(input.workspaceId, input.proposalId); } catch (error) { return asInternalError(error); }
+      }),
     updatePolicy: publicProcedure.input(z.object({
       workspaceId: workspaceIdSchema,
       maxSpendCents: z.number().int().min(100).max(10_000_000),

@@ -79,7 +79,10 @@ export default function Home() {
 
   const dashboard = trpc.proofbuy.getDashboard.useQuery({ workspaceId });
   const utils = trpc.useUtils();
-  const invalidate = () => utils.proofbuy.getDashboard.invalidate({ workspaceId });
+  const invalidate = () => {
+    void utils.proofbuy.getDashboard.invalidate({ workspaceId });
+    void utils.proofbuy.getProposalEvents.invalidate();
+  };
   const savePolicy = trpc.proofbuy.updatePolicy.useMutation({
     onSuccess: policy => {
       setDraft({
@@ -129,6 +132,10 @@ export default function Home() {
     () => proposals.find(proposal => proposal.id === selectedProposalId) ?? proposals[0] ?? null,
     [proposals, selectedProposalId],
   );
+  const proposalEvents = trpc.proofbuy.getProposalEvents.useQuery(
+    { workspaceId, proposalId: selected?.id ?? "00000000-0000-4000-8000-000000000000" },
+    { enabled: Boolean(selected) },
+  );
 
   useEffect(() => {
     if (!policy || draft) return;
@@ -144,8 +151,13 @@ export default function Home() {
   const approvalCount = proposals.filter(proposal => proposal.status === "awaiting_approval").length;
   const completedCount = proposals.filter(proposal => proposal.status === "completed_simulated").length;
   const networkLabel = (network: string) => network === "base-mainnet" ? "Base" : "Base Sepolia";
-  const selectedSnapshot = selected?.policySnapshot as { maxSpendCents?: number; requireHumanApproval?: boolean } | undefined;
-  const selectedEvents = selected ? events.filter(event => event.proposalId === selected.id).slice().reverse() : [];
+  const selectedSnapshot = selected?.policySnapshot as {
+    maxSpendCents?: number;
+    allowedRecipients?: string[];
+    destinationNetwork?: string;
+    requireHumanApproval?: boolean;
+  } | undefined;
+  const selectedEvents = proposalEvents.data ?? [];
 
   function propose(kind: "over-limit" | "unknown-recipient" | "compliant") {
     if (!policy) return;
@@ -306,9 +318,9 @@ export default function Home() {
                     <div className={`verdict ${selected.decision === "rejected" || selected.status === "failed_simulated" ? "verdict-rejected" : selected.status === "awaiting_approval" ? "verdict-pending" : "verdict-passed"}`}>
                       <span>{statusIcon(selected.status)}</span><div><strong>{statusLabel(selected.status)}</strong><small>{selected.decision === "rejected" ? "Execution is blocked." : selected.status === "awaiting_approval" ? "Review before any execution step." : selected.status === "completed_simulated" ? "Lifecycle shown for demonstration." : selected.status === "failed_simulated" ? "Simulated failure only. No transaction was submitted." : "Policy checks passed."}</small></div>
                     </div>
-                    <div className="receipt-fields"><ReceiptField label="REQUESTED BY" value="Purchasing agent" /><ReceiptField label="VENDOR" value={selected.vendor} /><ReceiptField label="AMOUNT" value={`${money(selected.amountCents)} ${selected.currency}`} /><ReceiptField label="RECIPIENT" value={shortAddress(selected.recipient)} mono /><ReceiptField label="DESTINATION" value={networkLabel(selected.destinationNetwork)} /><ReceiptField label="POLICY SNAPSHOT" value={`v${selected.policyVersion} · cap ${money(selectedSnapshot?.maxSpendCents ?? 0)}`} mono /><div className="receipt-field receipt-field-wide"><span>PURPOSE</span><strong>{selected.purpose}</strong></div>{selected.approvedAt && <ReceiptField label="HUMAN APPROVAL" value={`${selected.approvedBy ?? "Workspace operator"} · ${dateLabel(selected.approvedAt)}`} />}</div>
+                    <div className="receipt-fields"><ReceiptField label="REQUESTED BY" value="Purchasing agent" /><ReceiptField label="VENDOR" value={selected.vendor} /><ReceiptField label="AMOUNT" value={`${money(selected.amountCents)} ${selected.currency}`} /><ReceiptField label="RECIPIENT" value={selected.recipient} mono /><ReceiptField label="DESTINATION" value={networkLabel(selected.destinationNetwork)} /><ReceiptField label="POLICY VERSION" value={`v${selected.policyVersion}`} mono /><ReceiptField label="SNAPSHOT · SPEND CAP" value={`${money(selectedSnapshot?.maxSpendCents ?? 0)} USDC`} /><ReceiptField label="SNAPSHOT · DESTINATION" value={networkLabel(selectedSnapshot?.destinationNetwork ?? selected.destinationNetwork)} /><ReceiptField label="SNAPSHOT · HUMAN APPROVAL" value={selectedSnapshot?.requireHumanApproval ? "Required" : "Not required"} /><div className="receipt-field receipt-field-wide"><span>SNAPSHOT · APPROVED RECIPIENTS</span><div className="receipt-address-list">{selectedSnapshot?.allowedRecipients?.length ? selectedSnapshot.allowedRecipients.map(address => <code key={address}>{address}</code>) : <em>None approved</em>}</div></div><div className="receipt-field receipt-field-wide"><span>PURPOSE</span><strong>{selected.purpose}</strong></div>{selected.approvedAt && <ReceiptField label="HUMAN APPROVAL" value={`${selected.approvedBy ?? "Workspace operator"} · ${dateLabel(selected.approvedAt)}`} />}</div>
                     <div className="rule-block"><div className="rule-heading"><Fingerprint size={14} /> POLICY CHECKS <span>{selected.ruleResults.filter(rule => rule.passed).length}/{selected.ruleResults.length} PASSED</span></div>{selected.ruleResults.map(rule => <div className={`rule-row ${rule.passed ? "rule-pass" : "rule-fail"}`} key={rule.key}><span className="rule-state">{rule.passed ? <Check size={12} /> : <X size={12} />}</span><div><strong>{rule.label}</strong><small>{rule.detail}</small></div></div>)}</div>
-                    <div className="receipt-timeline"><div className="rule-heading"><Activity size={13} /> LIFECYCLE EVIDENCE <span>{selectedEvents.length} EVENTS</span></div>{selectedEvents.slice(-5).map(event => <div className="timeline-row" key={event.id}><span className={`timeline-dot ${event.eventType.includes("reject") || event.eventType.includes("failed") ? "timeline-dot-red" : event.eventType.includes("approv") ? "timeline-dot-amber" : ""}`} /><div><strong>{event.message}</strong><small>{dateLabel(event.createdAt)}</small></div></div>)}</div>
+                    <div className="receipt-timeline"><div className="rule-heading"><Activity size={13} /> LIFECYCLE EVIDENCE <span>{proposalEvents.isLoading ? "LOADING" : proposalEvents.isError ? "UNAVAILABLE" : `${selectedEvents.length} EVENTS`}</span></div>{proposalEvents.isLoading ? <p className="receipt-timeline-message">Loading complete proposal history…</p> : proposalEvents.isError ? <div className="receipt-timeline-error" role="alert"><span>Could not load the complete event history.</span><button className="text-button" onClick={() => void proposalEvents.refetch()}>Retry</button></div> : selectedEvents.map(event => <div className="timeline-row" key={event.id}><span className={`timeline-dot ${event.eventType.includes("reject") || event.eventType.includes("failed") ? "timeline-dot-red" : event.eventType.includes("approv") ? "timeline-dot-amber" : ""}`} /><div><strong>{event.message}</strong><small>{dateLabel(event.createdAt)}</small></div></div>)}</div>
                     <div className="receipt-foot"><span><Clock3 size={12} /> Created {dateLabel(selected.createdAt)}</span><span className="simulation-disclosure"><LockKeyhole size={12} /> SIMULATED ONLY</span></div>
                     {selected.status === "awaiting_approval" && <button className="button button-primary action-full" onClick={() => approveProposal.mutate({ workspaceId, proposalId: selected.id })} disabled={approveProposal.isPending}><ClipboardCheck size={16} /> {approveProposal.isPending ? "Recording approval…" : "Approve proposal"}</button>}
                     {(selected.status === "approved" || selected.status === "ready") && <div className="simulation-actions"><button className="button button-primary" onClick={() => simulate.mutate({ workspaceId, proposalId: selected.id, outcome: "completed" })} disabled={simulate.isPending}><Route size={16} /> {simulate.isPending ? "Running…" : "Simulate completion"}</button><button className="button button-outline" onClick={() => simulate.mutate({ workspaceId, proposalId: selected.id, outcome: "failed" })} disabled={simulate.isPending}><AlertTriangle size={14} /> Simulate failure</button></div>}

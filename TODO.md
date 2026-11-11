@@ -8,7 +8,7 @@
 
 - [x] **Compliant approval path:** A policy-passing proposal enters the required human-approval flow. It cannot enter the simulation step until approval is recorded.
 
-- [x] **Decision receipt and audit trail:** Each proposal has a readable receipt containing purpose and inputs, policy snapshot/version, rule-by-rule outcomes, final decision, timestamps, approval evidence, and a per-proposal lifecycle timeline. Receipts persist in MySQL and are scoped to a random demo workspace ID.
+- [x] **Decision receipt and audit trail:** Each proposal has a readable receipt containing purpose and submitted inputs, the full captured policy snapshot (version, amount cap, approved-recipient list, destination network, approval setting), every rule result, final decision, timestamps, approval evidence, and the complete per-proposal lifecycle event history. Receipts persist in MySQL and are scoped to a random demo workspace ID.
 
 - [x] **Lifecycle and alerts:** The interface presents accessible proposed, evaluated, rejected/approved, simulated-signature, simulated-submission, simulated-completion, and simulated-failure states. In-app alerts appear on policy rejection and approval events.
 

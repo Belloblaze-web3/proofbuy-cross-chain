@@ -10,9 +10,9 @@ ProofBuy is a hackathon MVP for guarded AI procurement. A deterministic server-s
 
 - Edit the per-purchase USDC limit, approved recipient addresses, one EVM destination (Base Sepolia or a display-only Base mainnet selection), and the human-approval requirement.
 - Run prepared demos for an over-limit request, an unapproved recipient, and a compliant purchase.
-- Review every server-evaluated rule and the policy version/snapshot used for that decision.
+- Review the full receipt: submitted recipient, captured policy snapshot (version, cap, recipient allowlist, destination, approval setting), every rule result, and operator approval evidence.
 - Require explicit operator approval before a compliant proposal can advance when the policy demands it.
-- Run either a **simulated completion** or a **simulated broadcast failure**; the receipt records the event history and plainly labels each step as simulated.
+- Run either a **simulated completion** or a **simulated broadcast failure**; every per-proposal lifecycle event appears in the receipt and is plainly labeled as simulated.
 - Review persisted proposals and policy events in a workspace decision log.
 
 ## Try it
